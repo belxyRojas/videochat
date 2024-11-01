@@ -1,18 +1,15 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// Servir archivos estáticos desde la carpeta public
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public')); // Asegúrate de que tu carpeta está correctamente configurada
 
-// Manejo de conexiones de socket
 io.on('connection', (socket) => {
-    console.log('Nuevo cliente conectado:', socket.id);
+    console.log('Nuevo usuario conectado:', socket.id);
 
     socket.on('join', (room) => {
         socket.join(room);
@@ -20,7 +17,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('signal', (data) => {
-        // Reenviar señales a los demás clientes en la sala
         socket.to(data.room).emit('signal', {
             signal: data.signal,
             sender: socket.id,
@@ -28,12 +24,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log('Cliente desconectado:', socket.id);
+        console.log('Usuario desconectado:', socket.id);
     });
 });
 
-// Iniciar el servidor
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });

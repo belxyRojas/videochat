@@ -2,6 +2,7 @@ const socket = io("https://videochat-production.up.railway.app"); // Cambia a la
 
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
+const callButton = document.getElementById('callButton');
 
 let localStream;
 let peerConnection;
@@ -19,13 +20,20 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true })
     });
 
 // Iniciar la llamada
+callButton.onclick = () => makeCall();
+
 function makeCall() {
+    alert("hi");
     if (!localStream) {
         console.error("No hay flujo local disponible.");
         return; // Salir si localStream no está disponible
     }
 
-    peerConnection = new RTCPeerConnection();
+    peerConnection = new RTCPeerConnection({
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' } // Servidor STUN público de Google
+        ]
+    });
 
     localStream.getTracks().forEach(track => {
         peerConnection.addTrack(track, localStream);
@@ -65,7 +73,7 @@ socket.on('signal', data => {
     // Solo procesar señales si no es el mismo emisor
     if (data.signal && data.sender !== socket.id) {
         if (!peerConnection) {
-            peerConnection = new RTCPeerConnection(); // Inicializa peerConnection si es necesario
+            peerConnection = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
             });
