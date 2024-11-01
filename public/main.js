@@ -1,75 +1,78 @@
+const socket = io("https://videochat-production.up.railway.app/"); // Cambia a la URL de tu servidor
+
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
 
-const socket = io(); // Conexión a socket.io
 let localStream;
 let remoteStream;
 let peerConnection;
-const configuration = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }, // Servidor STUN de Google
-    ],
-};
+const roomName = "room1"; // Puedes cambiar esto para diferentes salas
 
-// Función para iniciar la transmisión de medios locales
-async function startMedia() {
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideo.srcObject = localStream;
-    createPeerConnection();
-}
+// Solicitar acceso a la cámara y micrófono
+navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+    .then(stream => {
+        localVideo.srcObject = stream;
+        localStream = stream;
+        socket.emit('join', roomName); // Unirse a la sala
+    })
+    .catch(error => {
+        console.error("Error accediendo a la cámara y micrófono:", error);
+    });
 
-// Función para configurar la conexión RTCPeerConnection
-function createPeerConnection() {
-    peerConnection = new RTCPeerConnection(configuration);
+// Iniciar la llamada
+function makeCall() {
+    peerConnection = new RTCPeerConnection();
 
-    // Agregar el stream local al peerConnection
-    localStream.getTracks().forEach((track) => {
+    localStream.getTracks().forEach(track => {
         peerConnection.addTrack(track, localStream);
     });
 
-    // Maneja los eventos cuando se recibe una pista remota
-    peerConnection.ontrack = (event) => {
-        [remoteStream] = event.streams;
-        remoteVideo.srcObject = remoteStream;
+    peerConnection.ontrack = event => {
+        remoteVideo.srcObject = event.streams[0];
     };
 
-    // Envía los candidatos ICE al otro usuario
-    peerConnection.onicecandidate = (event) => {
+    peerConnection.onicecandidate = event => {
         if (event.candidate) {
-            socket.emit('candidate', event.candidate);
+            socket.emit('signal', {
+                room: roomName,
+                signal: event.candidate,
+            });
         }
     };
+
+    peerConnection.createOffer()
+        .then(offer => {
+            return peerConnection.setLocalDescription(offer);
+        })
+        .then(() => {
+            socket.emit('signal', {
+                room: roomName,
+                signal: peerConnection.localDescription,
+            });
+        });
 }
 
-// Función para iniciar una llamada (envía una oferta)
-async function makeCall() {
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    socket.emit('offer', offer);
-}
-
-// Función para recibir una oferta y responder
-async function handleOffer(offer) {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    socket.emit('answer', answer);
-}
-
-// Función para manejar la respuesta
-async function handleAnswer(answer) {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-}
-
-// Función para agregar candidatos ICE recibidos
-function handleCandidate(candidate) {
-    peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-}
-
-// Event Listeners de señalización
-socket.on('offer', handleOffer);
-socket.on('answer', handleAnswer);
-socket.on('candidate', handleCandidate);
-
-// Llama a startMedia al cargar la página para configurar la transmisión
-startMedia();
+// Manejo de señales entrantes
+socket.on('signal', data => {
+    if (data.signal && data.sender !== socket.id) {
+        if (data.signal.type === 'offer') {
+            peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal))
+                .then(() => {
+                    return peerConnection.createAnswer();
+                })
+                .then(answer => {
+                    return peerConnection.setLocalDescription(answer);
+                })
+                .then(() => {
+                    socket.emit('signal', {
+                        room: roomName,
+                        signal: peerConnection.localDescription,
+                    });
+                });
+        } else if (data.signal.type === 'answer') {
+            peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal));
+        } else {
+            peerConnection.addIceCandidate(new RTCIceCandidate(data.signal));
+        }
+    }
+});
