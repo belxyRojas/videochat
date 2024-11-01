@@ -1,127 +1,78 @@
-const socket = io("https://videochat-production.up.railway.app"); // Cambia a la URL de tu servidor
-
+const socket = io.connect("http://<YOUR_RAILWAY_URL>"); // Reemplaza con tu URL de Railway
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
+const roomIdInput = document.getElementById('roomId');
+const joinButton = document.getElementById('joinButton');
 const callButton = document.getElementById('callButton');
+const hangupButton = document.getElementById('hangupButton');
 
 let localStream;
+let remoteStream;
 let peerConnection;
-const roomName = "room1"; // Nombre de la sala
+const configuration = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
 
-// Solicitar acceso a la cámara y micrófono
-navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-    .then(stream => {
-        localVideo.srcObject = stream;
-        localStream = stream; // Guardar el flujo local
-        socket.emit('join', roomName); // Unirse a la sala
-    })
-    .catch(error => {
-        console.error("Error accediendo a la cámara y micrófono:", error);
-    });
+joinButton.onclick = () => {
+    const roomId = roomIdInput.value;
+    socket.emit('join', roomId);
+};
 
-// Iniciar la llamada
-callButton.onclick = () => makeCall();
+socket.on('joined', async (roomId) => {
+    console.log(`Te has unido a la sala: ${roomId}`);
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localVideo.srcObject = localStream;
+});
 
-function makeCall() {
-    alert("hi");
-    if (!localStream) {
-        console.error("No hay flujo local disponible.");
-        return; // Salir si localStream no está disponible
-    }
+socket.on('new-participant', (socketId) => {
+    console.log(`Nuevo participante: ${socketId}`);
+    callButton.onclick = () => makeCall(socketId);
+});
 
-    peerConnection = new RTCPeerConnection({
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' } // Servidor STUN público de Google
-        ]
-    });
+async function makeCall(socketId) {
+    peerConnection = new RTCPeerConnection(configuration);
+    peerConnection.addStream(localStream);
 
-    localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-    });
-
-    peerConnection.ontrack = event => {
-        remoteVideo.srcObject = event.streams[0];
-    };
-
-    peerConnection.onicecandidate = event => {
+    peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-            socket.emit('signal', {
-                room: roomName,
-                signal: event.candidate,
-            });
+            socket.emit('candidate', { candidate: event.candidate, to: socketId });
         }
     };
 
-    // Crear oferta
-    peerConnection.createOffer()
-        .then(offer => {
-            return peerConnection.setLocalDescription(offer);
-        })
-        .then(() => {
-            socket.emit('signal', {
-                room: roomName,
-                signal: peerConnection.localDescription,
-            });
-        })
-        .catch(error => {
-            console.error("Error creando la oferta:", error);
-        });
+    peerConnection.onaddstream = (event) => {
+        remoteVideo.srcObject = event.stream;
+    };
+
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.emit('offer', { offer: offer, to: socketId });
 }
 
-// Manejo de señales entrantes
-socket.on('signal', data => {
-    // Solo procesar señales si no es el mismo emisor
-    if (data.signal && data.sender !== socket.id) {
-        if (!peerConnection) {
-            peerConnection = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-            });
+socket.on('offer', async (data) => {
+    peerConnection = new RTCPeerConnection(configuration);
+    peerConnection.addStream(localStream);
 
-            peerConnection.ontrack = event => {
-                remoteVideo.srcObject = event.streams[0];
-            };
-
-            peerConnection.onicecandidate = event => {
-                if (event.candidate) {
-                    socket.emit('signal', {
-                        room: roomName,
-                        signal: event.candidate,
-                    });
-                }
-            };
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            socket.emit('candidate', { candidate: event.candidate, to: data.from });
         }
+    };
 
-        if (data.signal.type === 'offer') {
-            // Aceptar la oferta
-            peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal))
-                .then(() => {
-                    return peerConnection.createAnswer();
-                })
-                .then(answer => {
-                    return peerConnection.setLocalDescription(answer);
-                })
-                .then(() => {
-                    socket.emit('signal', {
-                        room: roomName,
-                        signal: peerConnection.localDescription,
-                    });
-                })
-                .catch(error => {
-                    console.error("Error en la respuesta:", error);
-                });
-        } else if (data.signal.type === 'answer') {
-            // Establecer la respuesta remota
-            peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal))
-                .catch(error => {
-                    console.error("Error estableciendo la respuesta remota:", error);
-                });
-        } else {
-            // Manejar ICE candidates
-            peerConnection.addIceCandidate(new RTCIceCandidate(data.signal))
-                .catch(error => {
-                    console.error("Error añadiendo ICE candidate:", error);
-                });
-        }
-    }
+    peerConnection.onaddstream = (event) => {
+        remoteVideo.srcObject = event.stream;
+    };
+
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    socket.emit('answer', { answer: answer, to: data.from });
+});
+
+socket.on('answer', (data) => {
+    peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+});
+
+socket.on('candidate', (data) => {
+    const candidate = new RTCIceCandidate(data.candidate);
+    peerConnection.addIceCandidate(candidate);
 });

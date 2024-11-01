@@ -1,19 +1,12 @@
 {
     "name": "videochat",
     "version": "1.0.0",
-    "description": "Proyecto de videochat con WebRTC, Node.js, Express y Socket.io",
     "main": "server.js",
     "scripts": {
         "start": "node server.js"
     },
-    "author": "Belxy",
-    "license": "MIT",
-  "dependencies": {
-    "express": "^4.18.2",
-    "http": "^0.0.1-security",
-    "socket.io": "^4.4.1"
+    "dependencies": {
+        "express": "^4.17.1",
+        "socket.io": "^4.3.2"
+    }
 }
-,
-    "keywords": []
-}
-
