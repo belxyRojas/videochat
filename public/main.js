@@ -1,10 +1,9 @@
-const socket = io("https://videochat-production.up.railway.app/"); // Cambia a la URL de tu servidor
+const socket = io("https://videochat-production.up.railway.app"); // Cambia a la URL de tu servidor
 
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
 
 let localStream;
-let remoteStream;
 let peerConnection;
 const roomName = "room1"; // Puedes cambiar esto para diferentes salas
 
@@ -40,6 +39,7 @@ function makeCall() {
         }
     };
 
+    // Crear oferta
     peerConnection.createOffer()
         .then(offer => {
             return peerConnection.setLocalDescription(offer);
@@ -49,6 +49,9 @@ function makeCall() {
                 room: roomName,
                 signal: peerConnection.localDescription,
             });
+        })
+        .catch(error => {
+            console.error("Error creando la oferta:", error);
         });
 }
 
@@ -56,6 +59,7 @@ function makeCall() {
 socket.on('signal', data => {
     if (data.signal && data.sender !== socket.id) {
         if (data.signal.type === 'offer') {
+            // Aceptar la oferta
             peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal))
                 .then(() => {
                     return peerConnection.createAnswer();
@@ -68,11 +72,22 @@ socket.on('signal', data => {
                         room: roomName,
                         signal: peerConnection.localDescription,
                     });
+                })
+                .catch(error => {
+                    console.error("Error en la respuesta:", error);
                 });
         } else if (data.signal.type === 'answer') {
-            peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal));
+            // Establecer la respuesta remota
+            peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal))
+                .catch(error => {
+                    console.error("Error estableciendo la respuesta remota:", error);
+                });
         } else {
-            peerConnection.addIceCandidate(new RTCIceCandidate(data.signal));
+            // Manejar ICE candidates
+            peerConnection.addIceCandidate(new RTCIceCandidate(data.signal))
+                .catch(error => {
+                    console.error("Error añadiendo ICE candidate:", error);
+                });
         }
     }
 });
