@@ -5,13 +5,13 @@ const remoteVideo = document.getElementById('remoteVideo');
 
 let localStream;
 let peerConnection;
-const roomName = "room1"; // Puedes cambiar esto para diferentes salas
+const roomName = "room1"; // Nombre de la sala
 
 // Solicitar acceso a la cámara y micrófono
 navigator.mediaDevices.getUserMedia({ video: true, audio: true })
     .then(stream => {
         localVideo.srcObject = stream;
-        localStream = stream;
+        localStream = stream; // Guardar el flujo local
         socket.emit('join', roomName); // Unirse a la sala
     })
     .catch(error => {
@@ -20,6 +20,11 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true })
 
 // Iniciar la llamada
 function makeCall() {
+    if (!localStream) {
+        console.error("No hay flujo local disponible.");
+        return; // Salir si localStream no está disponible
+    }
+
     peerConnection = new RTCPeerConnection();
 
     localStream.getTracks().forEach(track => {
