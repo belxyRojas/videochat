@@ -31,8 +31,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// Inicia el servidor en el puerto 3000
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8080; // O 3000, dependiendo de lo que hayas configurado
 server.listen(port, () => {
     console.log(`Servidor corriendo en http://localhost:${port}`);
 });
