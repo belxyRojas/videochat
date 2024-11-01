@@ -1,4 +1,4 @@
-const socket = io.connect("http://<YOUR_RAILWAY_URL>"); // Reemplaza con tu URL de Railway
+const socket = io.connect("https://videochat-production.up.railway.app/"); // Reemplaza con tu URL de Railway
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
 const roomIdInput = document.getElementById('roomId');
@@ -7,21 +7,25 @@ const callButton = document.getElementById('callButton');
 const hangupButton = document.getElementById('hangupButton');
 
 let localStream;
-let remoteStream;
 let peerConnection;
 const configuration = {
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
 };
 
-joinButton.onclick = () => {
+joinButton.onclick = async () => {
     const roomId = roomIdInput.value;
-    socket.emit('join', roomId);
+    await joinRoom(roomId);
 };
+
+async function joinRoom(roomId) {
+    socket.emit('join', roomId);
+}
 
 socket.on('joined', async (roomId) => {
     console.log(`Te has unido a la sala: ${roomId}`);
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideo.srcObject = localStream;
+    callButton.disabled = false; // Habilita el botón de iniciar llamada
 });
 
 socket.on('new-participant', (socketId) => {
@@ -46,6 +50,9 @@ async function makeCall(socketId) {
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
     socket.emit('offer', { offer: offer, to: socketId });
+
+    callButton.disabled = true; // Deshabilita el botón de iniciar llamada después de hacer la llamada
+    hangupButton.disabled = false; // Habilita el botón de colgar
 }
 
 socket.on('offer', async (data) => {
@@ -76,3 +83,16 @@ socket.on('candidate', (data) => {
     const candidate = new RTCIceCandidate(data.candidate);
     peerConnection.addIceCandidate(candidate);
 });
+
+// Funcionalidad de colgar llamada
+hangupButton.onclick = () => {
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+        remoteVideo.srcObject = null;
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    callButton.disabled = false; // Habilita el botón de iniciar llamada
+    hangupButton.disabled = true; // Deshabilita el botón de colgar
+};
