@@ -62,7 +62,28 @@ function makeCall() {
 
 // Manejo de señales entrantes
 socket.on('signal', data => {
+    // Solo procesar señales si no es el mismo emisor
     if (data.signal && data.sender !== socket.id) {
+        if (!peerConnection) {
+            peerConnection = new RTCPeerConnection(); // Inicializa peerConnection si es necesario
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            peerConnection.ontrack = event => {
+                remoteVideo.srcObject = event.streams[0];
+            };
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    socket.emit('signal', {
+                        room: roomName,
+                        signal: event.candidate,
+                    });
+                }
+            };
+        }
+
         if (data.signal.type === 'offer') {
             // Aceptar la oferta
             peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal))
