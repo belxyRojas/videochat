@@ -5,9 +5,6 @@ const roomIdInput = document.getElementById('roomId');
 const joinButton = document.getElementById('joinButton');
 const callButton = document.getElementById('callButton');
 const hangupButton = document.getElementById('hangupButton');
-const chatInput = document.getElementById('chatInput');
-const sendChatButton = document.getElementById('sendChatButton');
-const chatBox = document.getElementById('chatBox');
 
 let localStream;
 let peerConnection;
@@ -16,7 +13,7 @@ const configuration = {
 };
 
 joinButton.onclick = async () => {
-    const roomId = roomIdInput.value || "room1"; // Usa "room1" si no se proporciona un ID
+    const roomId = roomIdInput.value;
     await joinRoom(roomId);
 };
 
@@ -36,7 +33,6 @@ socket.on('new-participant', (socketId) => {
     callButton.onclick = () => makeCall(socketId);
 });
 
-// Función para iniciar una llamada
 async function makeCall(socketId) {
     peerConnection = new RTCPeerConnection(configuration);
     peerConnection.addStream(localStream);
@@ -47,8 +43,8 @@ async function makeCall(socketId) {
         }
     };
 
-    peerConnection.ontrack = (event) => {
-        remoteVideo.srcObject = event.streams[0];
+    peerConnection.onaddstream = (event) => {
+        remoteVideo.srcObject = event.stream;
     };
 
     const offer = await peerConnection.createOffer();
@@ -59,7 +55,6 @@ async function makeCall(socketId) {
     hangupButton.disabled = false; // Habilita el botón de colgar
 }
 
-// Manejo de la oferta y respuesta de WebRTC
 socket.on('offer', async (data) => {
     peerConnection = new RTCPeerConnection(configuration);
     peerConnection.addStream(localStream);
@@ -70,8 +65,8 @@ socket.on('offer', async (data) => {
         }
     };
 
-    peerConnection.ontrack = (event) => {
-        remoteVideo.srcObject = event.streams[0];
+    peerConnection.onaddstream = (event) => {
+        remoteVideo.srcObject = event.stream;
     };
 
     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
@@ -101,18 +96,3 @@ hangupButton.onclick = () => {
     callButton.disabled = false; // Habilita el botón de iniciar llamada
     hangupButton.disabled = true; // Deshabilita el botón de colgar
 };
-
-// Funcionalidad del chat
-sendChatButton.onclick = () => {
-    const message = chatInput.value;
-    if (message) {
-        socket.emit('chat-message', { message: message, roomId: roomIdInput.value });
-        chatInput.value = ''; // Limpia el campo de entrada
-    }
-};
-
-socket.on('chat-message', (data) => {
-    const messageElement = document.createElement('div');
-    messageElement.textContent = data.message;
-    chatBox.appendChild(messageElement);
-});

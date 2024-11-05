@@ -1,7 +1,14 @@
-const io = require('socket.io')(server);
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
+
+app.use(express.static('public'));
 
 io.on('connection', (socket) => {
-    console.log('Usuario conectado:', socket.id);
+    console.log('Nuevo usuario conectado: ' + socket.id);
 
     socket.on('join', (roomId) => {
         socket.join(roomId);
@@ -9,9 +16,21 @@ io.on('connection', (socket) => {
         socket.emit('joined', roomId);
     });
 
-    socket.on('chat-message', (data) => {
-        socket.to(data.roomId).emit('chat-message', { message: data.message });
+    socket.on('offer', (data) => {
+        socket.to(data.to).emit('offer', { offer: data.offer, from: socket.id });
     });
 
-    // Manejo de las señales de WebRTC (ofertas, respuestas, candidatos, etc.)
+    socket.on('answer', (data) => {
+        socket.to(data.to).emit('answer', { answer: data.answer });
+    });
+
+    socket.on('candidate', (data) => {
+        socket.to(data.to).emit('candidate', { candidate: data.candidate });
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
+    console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
