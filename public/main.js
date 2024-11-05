@@ -1,10 +1,12 @@
 const socket = io.connect("https://videochat-production.up.railway.app/"); // URL de tu servidor en Railway
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
-const roomIdInput = document.getElementById('roomId');
 const joinButton = document.getElementById('joinButton');
 const callButton = document.getElementById('callButton');
 const hangupButton = document.getElementById('hangupButton');
+const chatInput = document.getElementById('chatInput');
+const sendChatButton = document.getElementById('sendChatButton');
+const chatMessages = document.getElementById('chatMessages');
 
 let localStream;
 let peerConnection;
@@ -12,15 +14,16 @@ const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         {
-            urls: 'turn:relay.metered.ca:80',
-            username: 'public',
-            credential: 'public'
+            urls: "turn:global.turn.twilio.com:3478?transport=tcp",
+            username: "dc2d2894d5a9023620c467b0e71cfa6a35457e6679785ed6ae9856fe5bdfa269" ,
+            credential:  "tE2DajzSJwnsSbc123"
         }
     ]
 };
 
+// Unirse a la sala
 joinButton.onclick = async () => {
-    const roomId = roomIdInput.value || "room1";
+    const roomId = "room1";  // Usamos room1 como ID predeterminado
     await joinRoom(roomId);
 };
 
@@ -28,11 +31,12 @@ async function joinRoom(roomId) {
     socket.emit('join', roomId);
 }
 
+// Configuración de WebRTC y eventos de sala
 socket.on('joined', async (roomId) => {
     console.log(`Te has unido a la sala: ${roomId}`);
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideo.srcObject = localStream;
-    callButton.disabled = false; // Habilita el botón de iniciar llamada
+    callButton.disabled = false;
 });
 
 socket.on('new-participant', (socketId) => {
@@ -91,6 +95,7 @@ socket.on('candidate', (data) => {
     peerConnection.addIceCandidate(candidate);
 });
 
+// Funcionalidad de colgar llamada
 hangupButton.onclick = () => {
     if (peerConnection) {
         peerConnection.close();
@@ -102,3 +107,23 @@ hangupButton.onclick = () => {
     callButton.disabled = false;
     hangupButton.disabled = true;
 };
+
+// Chat de texto
+sendChatButton.onclick = () => {
+    const message = chatInput.value;
+    if (message.trim()) {
+        socket.emit('message', message); // Envía el mensaje al servidor
+        chatInput.value = '';
+        addMessageToChat("Yo: " + message); // Muestra el mensaje en tu propio chat
+    }
+};
+
+socket.on('message', (data) => {
+    addMessageToChat(data); // Muestra el mensaje recibido
+});
+
+function addMessageToChat(message) {
+    const messageElement = document.createElement('p');
+    messageElement.textContent = message;
+    chatMessages.appendChild(messageElement);
+}

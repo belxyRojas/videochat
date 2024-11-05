@@ -3,19 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
-    <title>Video Chat</title>
+    <title>Video Chat con Mensajería</title>
 </head>
 <body>
-    <h1>Video Chat</h1>
-    <div id="videos">
-        <video id="localVideo" autoplay muted></video>
-        <video id="remoteVideo" autoplay></video>
+    <h2>Video Chat</h2>
+    <div>
+        <video id="localVideo" autoplay playsinline></video>
+        <video id="remoteVideo" autoplay playsinline></video>
     </div>
-    <input type="text" id="roomId" placeholder="Room ID" value="room1">
-    <button id="joinButton">Unirse a la sala room1</button>
-    <button id="callButton" disabled>Iniciar llamada</button>
+    <input type="text" id="roomId" placeholder="ID de la sala" value="room1">
+    <button id="joinButton">Unirse a la sala</button>
+    <button id="callButton" disabled>Iniciar Llamada</button>
     <button id="hangupButton" disabled>Colgar</button>
+    
+    <h3>Chat de Texto</h3>
+    <div id="chat">
+        <div id="chatMessages"></div>
+        <input type="text" id="chatInput" placeholder="Escribe un mensaje">
+        <button id="sendChatButton">Enviar</button>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="main.js"></script>
 </body>
