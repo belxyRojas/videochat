@@ -1,4 +1,4 @@
-const socket = io.connect("https://videochat-production.up.railway.app/"); // Reemplaza con tu URL de Railway
+const socket = io.connect("https://videochat-production.up.railway.app/"); // URL de tu servidor en Railway
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
 const roomIdInput = document.getElementById('roomId');
@@ -9,11 +9,18 @@ const hangupButton = document.getElementById('hangupButton');
 let localStream;
 let peerConnection;
 const configuration = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        {
+            urls: 'turn:relay.metered.ca:80',
+            username: 'public',
+            credential: 'public'
+        }
+    ]
 };
 
 joinButton.onclick = async () => {
-    const roomId = roomIdInput.value;
+    const roomId = roomIdInput.value || "room1";
     await joinRoom(roomId);
 };
 
@@ -51,8 +58,8 @@ async function makeCall(socketId) {
     await peerConnection.setLocalDescription(offer);
     socket.emit('offer', { offer: offer, to: socketId });
 
-    callButton.disabled = true; // Deshabilita el botón de iniciar llamada después de hacer la llamada
-    hangupButton.disabled = false; // Habilita el botón de colgar
+    callButton.disabled = true;
+    hangupButton.disabled = false;
 }
 
 socket.on('offer', async (data) => {
@@ -84,7 +91,6 @@ socket.on('candidate', (data) => {
     peerConnection.addIceCandidate(candidate);
 });
 
-// Funcionalidad de colgar llamada
 hangupButton.onclick = () => {
     if (peerConnection) {
         peerConnection.close();
@@ -93,6 +99,6 @@ hangupButton.onclick = () => {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
     }
-    callButton.disabled = false; // Habilita el botón de iniciar llamada
-    hangupButton.disabled = true; // Deshabilita el botón de colgar
+    callButton.disabled = false;
+    hangupButton.disabled = true;
 };
