@@ -1,29 +1,22 @@
-const socket = io.connect("https://videochat-production.up.railway.app/"); // URL de tu servidor en Railway
+const socket = io.connect("https://videochat-production.up.railway.app/"); // Reemplaza con tu URL de Railway
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
+const roomIdInput = document.getElementById('roomId');
 const joinButton = document.getElementById('joinButton');
 const callButton = document.getElementById('callButton');
 const hangupButton = document.getElementById('hangupButton');
 const chatInput = document.getElementById('chatInput');
 const sendChatButton = document.getElementById('sendChatButton');
-const chatMessages = document.getElementById('chatMessages');
+const chatBox = document.getElementById('chatBox');
 
 let localStream;
 let peerConnection;
 const configuration = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        {
-            urls: "turn:global.turn.twilio.com:3478?transport=tcp",
-            username: "dc2d2894d5a9023620c467b0e71cfa6a35457e6679785ed6ae9856fe5bdfa269" ,
-            credential:  "tE2DajzSJwnsSbc123"
-        }
-    ]
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
 };
 
-// Unirse a la sala
 joinButton.onclick = async () => {
-    const roomId = "room1";  // Usamos room1 como ID predeterminado
+    const roomId = roomIdInput.value || "room1"; // Usa "room1" si no se proporciona un ID
     await joinRoom(roomId);
 };
 
@@ -31,12 +24,11 @@ async function joinRoom(roomId) {
     socket.emit('join', roomId);
 }
 
-// Configuración de WebRTC y eventos de sala
 socket.on('joined', async (roomId) => {
     console.log(`Te has unido a la sala: ${roomId}`);
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideo.srcObject = localStream;
-    callButton.disabled = false;
+    callButton.disabled = false; // Habilita el botón de iniciar llamada
 });
 
 socket.on('new-participant', (socketId) => {
@@ -44,6 +36,7 @@ socket.on('new-participant', (socketId) => {
     callButton.onclick = () => makeCall(socketId);
 });
 
+// Función para iniciar una llamada
 async function makeCall(socketId) {
     peerConnection = new RTCPeerConnection(configuration);
     peerConnection.addStream(localStream);
@@ -54,18 +47,19 @@ async function makeCall(socketId) {
         }
     };
 
-    peerConnection.onaddstream = (event) => {
-        remoteVideo.srcObject = event.stream;
+    peerConnection.ontrack = (event) => {
+        remoteVideo.srcObject = event.streams[0];
     };
 
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
     socket.emit('offer', { offer: offer, to: socketId });
 
-    callButton.disabled = true;
-    hangupButton.disabled = false;
+    callButton.disabled = true; // Deshabilita el botón de iniciar llamada después de hacer la llamada
+    hangupButton.disabled = false; // Habilita el botón de colgar
 }
 
+// Manejo de la oferta y respuesta de WebRTC
 socket.on('offer', async (data) => {
     peerConnection = new RTCPeerConnection(configuration);
     peerConnection.addStream(localStream);
@@ -76,8 +70,8 @@ socket.on('offer', async (data) => {
         }
     };
 
-    peerConnection.onaddstream = (event) => {
-        remoteVideo.srcObject = event.stream;
+    peerConnection.ontrack = (event) => {
+        remoteVideo.srcObject = event.streams[0];
     };
 
     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
@@ -104,26 +98,21 @@ hangupButton.onclick = () => {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
     }
-    callButton.disabled = false;
-    hangupButton.disabled = true;
+    callButton.disabled = false; // Habilita el botón de iniciar llamada
+    hangupButton.disabled = true; // Deshabilita el botón de colgar
 };
 
-// Chat de texto
+// Funcionalidad del chat
 sendChatButton.onclick = () => {
     const message = chatInput.value;
-    if (message.trim()) {
-        socket.emit('message', message); // Envía el mensaje al servidor
-        chatInput.value = '';
-        addMessageToChat("Yo: " + message); // Muestra el mensaje en tu propio chat
+    if (message) {
+        socket.emit('chat-message', { message: message, roomId: roomIdInput.value });
+        chatInput.value = ''; // Limpia el campo de entrada
     }
 };
 
-socket.on('message', (data) => {
-    addMessageToChat(data); // Muestra el mensaje recibido
+socket.on('chat-message', (data) => {
+    const messageElement = document.createElement('div');
+    messageElement.textContent = data.message;
+    chatBox.appendChild(messageElement);
 });
-
-function addMessageToChat(message) {
-    const messageElement = document.createElement('p');
-    messageElement.textContent = message;
-    chatMessages.appendChild(messageElement);
-}

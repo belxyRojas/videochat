@@ -3,23 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Chat con Mensajería</title>
+    <title>Video Chat</title>
 </head>
 <body>
-    <h2>Video Chat</h2>
-    <div>
-        <video id="localVideo" autoplay playsinline></video>
-        <video id="remoteVideo" autoplay playsinline></video>
-    </div>
-    <input type="text" id="roomId" placeholder="ID de la sala" value="room1">
+    <h1>Video Chat</h1>
+    <video id="localVideo" autoplay muted></video>
+    <video id="remoteVideo" autoplay></video>
+
+    <input type="text" id="roomId" placeholder="Ingrese el ID de la sala" />
     <button id="joinButton">Unirse a la sala</button>
-    <button id="callButton" disabled>Iniciar Llamada</button>
+    <button id="callButton" disabled>Iniciar llamada</button>
     <button id="hangupButton" disabled>Colgar</button>
-    
-    <h3>Chat de Texto</h3>
-    <div id="chat">
-        <div id="chatMessages"></div>
-        <input type="text" id="chatInput" placeholder="Escribe un mensaje">
+
+    <div>
+        <h2>Chat</h2>
+        <div id="chatBox" style="border: 1px solid #ccc; height: 200px; overflow-y: scroll;"></div>
+        <input type="text" id="chatInput" placeholder="Escribe un mensaje..." />
         <button id="sendChatButton">Enviar</button>
     </div>
 
